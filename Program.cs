@@ -12,7 +12,8 @@ namespace SA.Telebot
 {
     class Program
     {
-        private const string TELEGRAM_ACCESS_TOKEN = "TELEGRAM_ACCESS_TOKEN";
+        private const string ENV_PREFIX = "SA_";
+        private const string TELEGRAM_ACCESS_TOKEN = "ACCESS_TOKEN";
         private const string SECTION_IMAGES = "images";
         private const string SECTION_TEXT = "text";
         private const string SECTION_REACTIONS = "reactions";
@@ -27,9 +28,21 @@ namespace SA.Telebot
         {
             _configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                .AddEnvironmentVariables()
+                .AddEnvironmentVariables(ENV_PREFIX)
                 .Build();
+            //Dump(_configuration.GetChildren());
             _telegramAccessToken = _configuration[TELEGRAM_ACCESS_TOKEN];
+        }
+
+        private static void Dump(IEnumerable<IConfigurationSection> e, int level = 0)
+        {
+#if DEBUG
+            foreach(var i in e)
+            {
+                Console.WriteLine("{0}{1}: {2}", new string(' ', level*4), i.Key, i.Value);
+                Dump(i.GetChildren(), level + 1);
+            }
+#endif
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "<Pending>")]
@@ -40,6 +53,12 @@ namespace SA.Telebot
                 e.Cancel = true;
                 _cts.Cancel();
             };
+
+            if (string.IsNullOrWhiteSpace(_telegramAccessToken))
+            {
+                Console.WriteLine($"ERROR: {ENV_PREFIX + TELEGRAM_ACCESS_TOKEN} is not defined in appsettings.json or as environment variable");
+                return;
+            }
 
             try
             {
