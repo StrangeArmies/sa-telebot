@@ -88,7 +88,8 @@ namespace SA.Telebot
             var me = _botClient.GetMeAsync().Result;
             Console.WriteLine($"Hello, World! I am user {me.Id} and my name is {me.FirstName}.");
 
-            _botClient.OnMessage += Bot_OnMessage;
+            _botClient.OnMessage += BotOnMessage;
+            //_botClient.OnUpdate += BotOnUpdate;
             _botClient.StartReceiving();
         }
 
@@ -97,55 +98,68 @@ namespace SA.Telebot
             _botClient.StopReceiving();
         }
 
-        static async void Bot_OnMessage(object sender, MessageEventArgs e)
+        static async void BotOnMessage(object sender, MessageEventArgs e)
         {
             if (string.IsNullOrEmpty(e.Message.Text))
                 return;
 
             Console.WriteLine($"Received a text message in chat {e.Message.Chat.Id} from {e.Message.From.Username}.");
 
-            switch (e.Message.Text)
+            try
             {
-                case var cmd when cmd.StartsWith("/help"):
-                    var text = "Список команд:"
-                    + Environment.NewLine + "/img - присылает случайную картинку из списка."
-                    + Environment.NewLine + "/text - присылает случайный текст."
-                    + Environment.NewLine + "Реагирует на следующийе слова или фразы:"
-                    + Environment.NewLine + "    "
-                    + string.Join(Environment.NewLine + "    ", _configuration.GetSection(SECTION_REACTIONS).GetChildren().Select(i => i.Key));
-                    await _botClient.SendTextMessageAsync(
-                        chatId: e.Message.Chat,
-                        text: text,
-                        replyToMessageId: e.Message.MessageId); ;
-                    break;
-                case var cmd when cmd.StartsWith("/img"):
-                    var images = _configuration.GetSection(SECTION_IMAGES).GetChildren().SelectMany(i => PpopulatePath(i.Value)).ToArray();
-                    var imagePath = images[_rnd.Next(0, images.Length)];
-                    await _botClient.SendPhotoAsync(
-                        chatId: e.Message.Chat,
-                        new InputOnlineFile(File.OpenRead(imagePath)),
-                        replyToMessageId: e.Message.MessageId);
-                    break;
-                case var cmd when cmd.StartsWith("/text"):
-                    var texts = _configuration.GetSection(SECTION_TEXT).GetChildren().ToArray();
-                    var msg = texts[_rnd.Next(0, texts.Length)].Value;
-                    await _botClient.SendTextMessageAsync(
-                        chatId: e.Message.Chat,
-                        text: msg,
-                        replyToMessageId: e.Message.MessageId);
-                    break;
-                default:
-                    var reaction = _configuration
-                        .GetSection(SECTION_REACTIONS)
-                        .GetChildren()
-                        .FirstOrDefault(i => e.Message.Text.ToLower().StartsWith(i.Key))
-                        ?.Value ?? "Unknown command";
-                    await _botClient.SendTextMessageAsync(
-                        chatId: e.Message.Chat,
-                        text: reaction,
-                        replyToMessageId: e.Message.MessageId);
-                    break;
+                switch (e.Message.Text)
+                {
+                    case var cmd when cmd.StartsWith("/help"):
+                        var text = "Список команд:"
+                        + Environment.NewLine + "/img - присылает случайную картинку из списка."
+                        + Environment.NewLine + "/text - присылает случайный текст."
+                        + Environment.NewLine + "Реагирует на следующийе слова или фразы:"
+                        + Environment.NewLine + "    "
+                        + string.Join(Environment.NewLine + "    ", _configuration.GetSection(SECTION_REACTIONS).GetChildren().Select(i => i.Key));
+                        await _botClient.SendTextMessageAsync(
+                            chatId: e.Message.Chat,
+                            text: text,
+                            replyToMessageId: e.Message.MessageId); ;
+                        break;
+                    case var cmd when cmd.StartsWith("/img"):
+                        var images = _configuration.GetSection(SECTION_IMAGES).GetChildren().SelectMany(i => PpopulatePath(i.Value)).ToArray();
+                        var imagePath = images[_rnd.Next(0, images.Length)];
+                        await _botClient.SendPhotoAsync(
+                            chatId: e.Message.Chat,
+                            new InputOnlineFile(File.OpenRead(imagePath)),
+                            replyToMessageId: e.Message.MessageId);
+                        break;
+                    case var cmd when cmd.StartsWith("/text"):
+                        var texts = _configuration.GetSection(SECTION_TEXT).GetChildren().ToArray();
+                        var msg = texts[_rnd.Next(0, texts.Length)].Value;
+                        await _botClient.SendTextMessageAsync(
+                            chatId: e.Message.Chat,
+                            text: msg,
+                            replyToMessageId: e.Message.MessageId);
+                        break;
+                    default:
+                        var reaction = _configuration
+                            .GetSection(SECTION_REACTIONS)
+                            .GetChildren()
+                            .FirstOrDefault(i => e.Message.Text.ToLower().StartsWith(i.Key))
+                            ?.Value ?? "Unknown command";
+                        await _botClient.SendTextMessageAsync(
+                            chatId: e.Message.Chat,
+                            text: reaction,
+                            replyToMessageId: e.Message.MessageId);
+                        break;
+                }
+            }catch(Exception ex)
+            {
+                Console.WriteLine("ERROR: {0}", ex);
+                await _botClient.SendTextMessageAsync(
+                    chatId: e.Message.Chat,
+                    text: "Something went wrong :(",
+                    replyToMessageId: e.Message.MessageId);
             }
+        }
+        private static void BotOnUpdate(object sender, UpdateEventArgs e)
+        {
         }
 
         private static IEnumerable<string> PpopulatePath(string path)
